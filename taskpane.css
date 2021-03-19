@@ -56,9 +56,7 @@
 }
 
 .input-search {
-    margin-left: 8px;
-    margin-right: 8px;
-    width: calc(100% - 32px);
+    width: 100%;
 }
 
 .tile-title > .text {
