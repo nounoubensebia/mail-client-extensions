@@ -143,7 +143,10 @@
  }
 
  .icon-with-text-parent > div{
-     overflow-wrap: anywhere;
+     overflow: hidden;
+     white-space: nowrap;
+     text-overflow: ellipsis;
+     max-width: 120px;
  }
 
  .odoo-muted-button {
