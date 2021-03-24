@@ -142,13 +142,6 @@
      flex-direction: row;
  }
 
- .icon-with-text-parent > div{
-     overflow: hidden;
-     white-space: nowrap;
-     text-overflow: ellipsis;
-     max-width: 120px;
- }
-
  .odoo-muted-button {
      border: solid 1px #ededed;
      border-radius: 4px;
