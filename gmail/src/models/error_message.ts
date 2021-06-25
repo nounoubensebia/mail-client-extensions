@@ -1,3 +1,5 @@
+import { _t } from "../services/translation";
+
 /**
  * Represent an error and translate its code to a message.
  */
@@ -12,6 +14,9 @@ const _ERROR_CODE_MESSAGES: Record<string, string> = {
         "Oops, looks like you have exhausted your free enrichment requests. Please log in to try again.",
     missing_data: "No data found for this email address.",
     unknown: "Something bad happened. Please, try again later.",
+    // Attachment
+    attachments_size_exceeded:
+        "Attachments could not be logged in Odoo because their total size exceeded the allowed maximum.",
 };
 
 /**
@@ -46,7 +51,7 @@ export class ErrorMessage {
 
         this.code = code;
         this.information = information;
-        this.message = _ERROR_CODE_MESSAGES[this.code];
+        this.message = _t(_ERROR_CODE_MESSAGES[this.code]);
 
         if (code === "http_error_odoo") {
             this.canContactOdooDatabase = false;
