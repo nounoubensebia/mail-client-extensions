@@ -11,6 +11,7 @@ const api = {
     iapLeadEnrichment: "https://iap-services.odoo.com/iap/mail_extension/enrich",
     logSingleMail:"/mail_plugin/log_mail_content",
     searchPartner: "/mail_plugin/partner/search",
+    testInstallationUrl: "/mail_plugin/test_installation",
     getTranslations: "/mail_plugin/get_translations",
     searchProject: "/mail_plugin/project/search",
 
