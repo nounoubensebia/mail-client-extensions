@@ -1,21 +1,24 @@
 import * as React from "react";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import {faHandshake, faEnvelope, faSearch, faLifeRing} from '@fortawesome/free-solid-svg-icons'
-import { TextField } from "office-ui-fabric-react/lib/TextField";
-import { PrimaryButton, DefaultButton } from "office-ui-fabric-react";
-import {HttpVerb, sendHttpRequest, ContentType} from "../../../utils/httpRequest";
+import {FontAwesomeIcon} from '@fortawesome/react-fontawesome'
+import {faEnvelope, faHandshake, faLifeRing, faSearch} from '@fortawesome/free-solid-svg-icons'
+import {TextField} from "office-ui-fabric-react/lib/TextField";
+import {DefaultButton, PrimaryButton, Spinner, SpinnerSize} from "office-ui-fabric-react";
+import {ContentType, HttpVerb, sendHttpRequest} from "../../../utils/httpRequest";
 import "fontawesome-4.7/css/font-awesome.css";
 import api from "../../api";
 import AppContext from '../AppContext';
 import "./Login.css";
+import {OdooTheme} from "../../../utils/Themes";
 
 
 type LoginState = { 
     isLoading: boolean;
     baseURL: string;
     urlError: string;
+    state: number; // 0 = idle, 1 = loading, 2 = error
 };
 
+const DOCUMENTATION_LINK = "https://www.odoo.com/documentation/14.0/applications/sales/crm/optimize/outlook_extension.html";
 
 class Login extends React.Component<{}, LoginState> {
     constructor(props) {
@@ -23,7 +26,8 @@ class Login extends React.Component<{}, LoginState> {
         this.state = {
             isLoading: false,
             baseURL: localStorage.getItem("baseURL"),
-            urlError: null
+            urlError: null,
+            state: 1,
         };
     }
 
@@ -46,6 +50,7 @@ class Login extends React.Component<{}, LoginState> {
     }
 
     login = () => {
+        this.setState({state: 2});
         let sanitizedURL = '';
         try {
             sanitizedURL = this.sanitizeDbUrl(this.state.baseURL);
@@ -63,32 +68,67 @@ class Login extends React.Component<{}, LoginState> {
         promptBeforeOpen: true,
         };
 
-        const redirectToAddin = encodeURIComponent(api.addInBaseURL + '/taskpane.html');
-        const redirectToAuthPage = encodeURIComponent(api.authCodePage + '?scope=' + api.outlookScope + '&friendlyname=' + api.outlookFriendlyName + '&info=' + '&redirect=' + redirectToAddin);
-        const loginURL = api.baseURL + api.loginPage + '?redirect=' + redirectToAuthPage;
+        const testInstallationUrl = api.baseURL + api.testInstallationUrl;
 
-        Office.context.ui.displayDialogAsync(api.addInBaseURL + '/dialog.html?dialogredir=' + loginURL, options , (asyncResult) => {
-            let dialog = asyncResult.value;
-            dialog.addEventHandler(Office.EventType.DialogMessageReceived, (_arg) => {
-                dialog.close();
-                let success = new URL(JSON.parse(_arg['message']).value).searchParams.get("success");
-                if (success === "1")
-                {
-                    let code = new URL(JSON.parse(_arg['message']).value).searchParams.get("auth_code");
-                    sendHttpRequest(HttpVerb.POST, api.baseURL + api.getAccessToken, ContentType.Json, null, {"auth_code": code}, true)
-                        .promise.then((response) => {
-                        const parsed = JSON.parse(response);
-                        this.context.connect(parsed.result.access_token);
-                        this.context.navigation.goToMain();
+        sendHttpRequest(HttpVerb.POST, testInstallationUrl, ContentType.Json, null, null, true).promise.then(response => {
+            const statusResponse = JSON.parse(response);
+            if (statusResponse.result.status == 'success') {
+                const redirectToAddin = encodeURIComponent(api.addInBaseURL + '/taskpane.html');
+                const redirectToAuthPage = encodeURIComponent(api.authCodePage + '?scope=' + api.outlookScope + '&friendlyname=' + api.outlookFriendlyName + '&info=' + '&redirect=' + redirectToAddin);
+                const loginURL = api.baseURL + api.loginPage + '?redirect=' + redirectToAuthPage;
+
+                Office.context.ui.displayDialogAsync(api.addInBaseURL + '/dialog.html?dialogredir=' + loginURL, options, (asyncResult) => {
+                    let dialog = asyncResult.value;
+                    dialog.addEventHandler(Office.EventType.DialogMessageReceived, (_arg) => {
+                        dialog.close();
+                        let success = new URL(JSON.parse(_arg['message']).value).searchParams.get("success");
+                        if (success === "1") {
+                            let code = new URL(JSON.parse(_arg['message']).value).searchParams.get("auth_code");
+                            sendHttpRequest(HttpVerb.POST, api.baseURL + api.getAccessToken, ContentType.Json, null, {"auth_code": code}, true)
+                                .promise.then((response) => {
+                                const parsed = JSON.parse(response);
+                                this.context.connect(parsed.result.access_token);
+                                this.context.navigation.goToMain();
+                            });
+                        }
                     });
-                }
-            });
-        })
+                })
+            }
+        }).catch(error => {
+            this.setState({state: 3});
+            console.log(error);
+        });
     };
 
     signup = () => {
         window.open('https://www.odoo.com/trial?selected_app=mail_plugin:crm_mail_plugin:helpdesk_mail_plugin'
             ,'_blank');
+    }
+
+    private getLoginButtonOrSpinner = () => {
+
+        switch (this.state.state) {
+            case 1:
+                return (
+                    <PrimaryButton className="form-line full-width odoo-filled-button" text='Login'
+                                   onClick={this.login}/>
+                );
+            case 2:
+                return (<Spinner size={SpinnerSize.large} className='login-spinner' theme={OdooTheme}/>);
+            case 3:
+                return (
+                    <div>
+                        <PrimaryButton className="form-line full-width odoo-filled-button" text='Login'
+                                       onClick={this.login}/>
+                        <span className='error-text'>
+                            We haven't been able to connect to your database. Checkout our <a href={DOCUMENTATION_LINK}
+                                                                                              target="_blank">FAQ</a>.
+                        </span>
+                    </div>
+                );
+            default:
+                return null;
+        }
     }
 
     render() {
@@ -109,7 +149,7 @@ class Login extends React.Component<{}, LoginState> {
                     onChange={this.onServerChange}
                     errorMessage={this.state.urlError}
                 />
-                <PrimaryButton className="form-line full-width odoo-filled-button" text='Login' onClick={this.login}/>
+                {this.getLoginButtonOrSpinner()}
 
                 <h3 className='horizontal-line'><span>OR</span></h3>
 
