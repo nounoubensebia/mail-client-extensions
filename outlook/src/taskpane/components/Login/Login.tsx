@@ -1,9 +1,9 @@
 import * as React from "react";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import {faHandshake, faEnvelope, faSearch, faLifeRing} from '@fortawesome/free-solid-svg-icons'
-import { TextField } from "office-ui-fabric-react/lib/TextField";
-import { PrimaryButton, DefaultButton } from "office-ui-fabric-react";
-import {HttpVerb, sendHttpRequest, ContentType} from "../../../utils/httpRequest";
+import {FontAwesomeIcon} from '@fortawesome/react-fontawesome'
+import {faEnvelope, faHandshake, faLifeRing, faSearch} from '@fortawesome/free-solid-svg-icons'
+import {TextField} from "office-ui-fabric-react/lib/TextField";
+import {DefaultButton, PrimaryButton} from "office-ui-fabric-react";
+import {ContentType, HttpVerb, sendHttpRequest} from "../../../utils/httpRequest";
 import "fontawesome-4.7/css/font-awesome.css";
 import api from "../../api";
 import AppContext from '../AppContext';
@@ -63,27 +63,37 @@ class Login extends React.Component<{}, LoginState> {
         promptBeforeOpen: true,
         };
 
-        const redirectToAddin = encodeURIComponent(api.addInBaseURL + '/taskpane.html');
-        const redirectToAuthPage = encodeURIComponent(api.authCodePage + '?scope=' + api.outlookScope + '&friendlyname=' + api.outlookFriendlyName + '&info=' + '&redirect=' + redirectToAddin);
-        const loginURL = api.baseURL + api.loginPage + '?redirect=' + redirectToAuthPage;
+        const testInstallationUrl = api.baseURL + api.testInstallationUrl;
 
-        Office.context.ui.displayDialogAsync(api.addInBaseURL + '/dialog.html?dialogredir=' + loginURL, options , (asyncResult) => {
-            let dialog = asyncResult.value;
-            dialog.addEventHandler(Office.EventType.DialogMessageReceived, (_arg) => {
-                dialog.close();
-                let success = new URL(JSON.parse(_arg['message']).value).searchParams.get("success");
-                if (success === "1")
-                {
-                    let code = new URL(JSON.parse(_arg['message']).value).searchParams.get("auth_code");
-                    sendHttpRequest(HttpVerb.POST, api.baseURL + api.getAccessToken, ContentType.Json, null, {"auth_code": code}, true)
-                        .promise.then((response) => {
-                        const parsed = JSON.parse(response);
-                        this.context.connect(parsed.result.access_token);
-                        this.context.navigation.goToMain();
+        sendHttpRequest(HttpVerb.POST, testInstallationUrl, ContentType.Json, null, null, true).promise.then(response => {
+            const statusResponse = JSON.parse(response);
+            if (statusResponse.result.status == 'success') {
+                const redirectToAddin = encodeURIComponent(api.addInBaseURL + '/taskpane.html');
+                const redirectToAuthPage = encodeURIComponent(api.authCodePage + '?scope=' + api.outlookScope + '&friendlyname=' + api.outlookFriendlyName + '&info=' + '&redirect=' + redirectToAddin);
+                const loginURL = api.baseURL + api.loginPage + '?redirect=' + redirectToAuthPage;
+
+                Office.context.ui.displayDialogAsync(api.addInBaseURL + '/dialog.html?dialogredir=' + loginURL, options, (asyncResult) => {
+                    let dialog = asyncResult.value;
+                    dialog.addEventHandler(Office.EventType.DialogMessageReceived, (_arg) => {
+                        dialog.close();
+                        let success = new URL(JSON.parse(_arg['message']).value).searchParams.get("success");
+                        if (success === "1") {
+                            let code = new URL(JSON.parse(_arg['message']).value).searchParams.get("auth_code");
+                            sendHttpRequest(HttpVerb.POST, api.baseURL + api.getAccessToken, ContentType.Json, null, {"auth_code": code}, true)
+                                .promise.then((response) => {
+                                const parsed = JSON.parse(response);
+                                this.context.connect(parsed.result.access_token);
+                                this.context.navigation.goToMain();
+                            });
+                        }
                     });
-                }
-            });
-        })
+                })
+            }
+        }).catch(error => {
+            console.log(error);
+            window.open('https://www.odoo.com/documentation/14.0/applications/sales/crm/optimize/outlook_extension.html',
+                '_blank')
+        });
     };
 
     signup = () => {
